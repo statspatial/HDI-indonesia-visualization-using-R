@@ -1,0 +1,161 @@
+---
+title: "ipm_provinsi"
+author: "azis"
+date: "2026-03-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+#install_github(lbb220/GWmodel)
+library(readxl)
+library(tidyverse)
+library(ggplot2)
+library(sp)
+library(sf)
+library(spgwr)
+library(spdep)
+library(spData)
+library(GWmodel)
+#library(tmap)
+```
+
+```{r}
+df <- read_excel("D:/personal/akhor umur/statspatial.com/posts/ipm visualization/ipm 2024.xlsx")
+df
+str(df)
+
+```
+
+```{r}
+dfipm<-df%>% dplyr::select(id,province,ipm)
+str(dfipm)
+```
+
+
+```{r}
+#par(mfrow = c(1, 2))
+#histogram distribution
+hist(dfipm$ipm,main = "Distribusi IPM",xlab="ipm") 
+```
+
+
+```{r}
+#Input peta shp
+petaprov <- st_read(file.path("D:/personal/IPB course S3/penelitian disertasi/sinopsis proposal disertasi/HLM-GWR-SIMILARITY/proposal/chatgpt-hlm-sgwr/sidkom-2/kemiskinan/peta shp/anas/Provinsi SHP/Provinsi.shp"))
+```
+
+```{r}
+print(petaprov)
+```
+
+```{r}
+table(st_geometry_type(petaprov))
+sum(st_is_empty(petaprov))
+sum(!st_is_valid(petaprov))
+```
+
+```{r}
+petaprov |> 
+  dplyr::filter(!st_is_valid(petaprov)) |> 
+  dplyr::select(PROVINSI)
+```
+
+```{r}
+library(sf)
+
+petaprov_fix <- petaprov |>
+  st_make_valid()
+```
+
+
+
+
+```{r}
+# gabungkan level-1 dengan variabel level-2
+prov <- petaprov %>% 
+  #left_join(df1, by = "kdkab")
+  left_join(dfipm, by = c("FID"="id"))
+  #right_join(df1, by = c("FID"="kdkab"))
+```
+
+```{r}
+print(prov)
+```
+
+
+
+```{r}
+prov_fix <- st_zm(prov, drop = TRUE, what = "ZM")
+```
+
+```{r}
+library(writexl)
+df_excel <- sf::st_drop_geometry(petaprov)
+write_xlsx(df_excel, "petaprov.xlsx")
+```
+
+
+```{r}
+library(ggspatial) #for arrow
+p<-ggplot() +
+  # layer kabupaten dengan warna berdasarkan kemiskinan
+  geom_sf(
+    data = prov_fix,
+    aes(fill = ipm),
+    color = "grey30",
+    linewidth = 0.2
+  ) +
+  
+  scale_fill_gradient(
+    low = "#FFF400",
+    high = "#D10000",
+    name = "IPM (HDI)"
+  ) +
+  
+  labs(
+    title = "Sebaran IPM",
+    caption = "Source: BPS (processed)"
+  ) +
+   # Arah utara
+  annotation_north_arrow(
+    location = "tr", # posisi: tl, tr, bl, br
+    which_north = "true",
+    style = north_arrow_fancy_orienteering,
+    height = unit(1.0, "cm"),
+    width  = unit(1.0, "cm"),
+    pad_x  = unit(0.5, "cm"),
+    pad_y  = unit(0.5, "cm")
+  ) +
+  # Skala
+  annotation_scale(
+    location = "bl", # posisi: tl, tr, bl, br
+    width_hint = 0.2,
+    height = unit(0.2, "cm"),
+    text_cex = 1.0
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),
+    plot.title = element_text(face = "bold", size = 14)
+  )
+p
+```
+
+
+```{r}
+ggsave(
+  filename = "peta_ipm.png",
+  plot = p,
+  width = 16,
+  height = 12,
+  units = "in",
+  dpi = 300
+)
+```
+
+
+
